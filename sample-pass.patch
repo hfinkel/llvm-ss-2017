@@ -1,0 +1,326 @@
+diff --git a/include/llvm-c/Transforms/Scalar.h b/include/llvm-c/Transforms/Scalar.h
+index 8991e090484..b48f5bf8b8b 100644
+--- a/include/llvm-c/Transforms/Scalar.h
++++ b/include/llvm-c/Transforms/Scalar.h
+@@ -41,6 +41,9 @@ void LLVMAddBitTrackingDCEPass(LLVMPassManagerRef PM);
+ /** See llvm::createAlignmentFromAssumptionsPass function. */
+ void LLVMAddAlignmentFromAssumptionsPass(LLVMPassManagerRef PM);
+ 
++/** See llvm::createSummerSchoolExamplePass function. */
++void LLVMAddSummerSchoolExamplePass(LLVMPassManagerRef PM);
++
+ /** See llvm::createCFGSimplificationPass function. */
+ void LLVMAddCFGSimplificationPass(LLVMPassManagerRef PM);
+ 
+diff --git a/include/llvm/InitializePasses.h b/include/llvm/InitializePasses.h
+index a34ebaf18a0..06fee62941f 100644
+--- a/include/llvm/InitializePasses.h
++++ b/include/llvm/InitializePasses.h
+@@ -66,6 +66,7 @@ void initializeAddressSanitizerModulePass(PassRegistry&);
+ void initializeAddressSanitizerPass(PassRegistry&);
+ void initializeAliasSetPrinterPass(PassRegistry&);
+ void initializeAlignmentFromAssumptionsPass(PassRegistry&);
++void initializeSummerSchoolExamplePass(PassRegistry&);
+ void initializeAlwaysInlinerLegacyPassPass(PassRegistry&);
+ void initializeArgPromotionPass(PassRegistry&);
+ void initializeAssumptionCacheTrackerPass(PassRegistry &);
+diff --git a/include/llvm/LinkAllPasses.h b/include/llvm/LinkAllPasses.h
+index e50137f8e02..0eeb4517080 100644
+--- a/include/llvm/LinkAllPasses.h
++++ b/include/llvm/LinkAllPasses.h
+@@ -66,6 +66,7 @@ namespace {
+       (void) llvm::createBitTrackingDCEPass();
+       (void) llvm::createArgumentPromotionPass();
+       (void) llvm::createAlignmentFromAssumptionsPass();
++      (void) llvm::createSummerSchoolExamplePass();
+       (void) llvm::createBasicAAWrapperPass();
+       (void) llvm::createSCEVAAWrapperPass();
+       (void) llvm::createTypeBasedAAWrapperPass();
+diff --git a/include/llvm/Transforms/Scalar.h b/include/llvm/Transforms/Scalar.h
+index 92558937d04..196d2b3278f 100644
+--- a/include/llvm/Transforms/Scalar.h
++++ b/include/llvm/Transforms/Scalar.h
+@@ -45,6 +45,12 @@ FunctionPass *createAlignmentFromAssumptionsPass();
+ 
+ //===----------------------------------------------------------------------===//
+ //
++// SummerSchoolExample - An example.
++//
++FunctionPass *createSummerSchoolExamplePass();
++
++//===----------------------------------------------------------------------===//
++//
+ // SCCP - Sparse conditional constant propagation.
+ //
+ FunctionPass *createSCCPPass();
+diff --git a/include/llvm/Transforms/Scalar/SummerSchoolExample.h b/include/llvm/Transforms/Scalar/SummerSchoolExample.h
+new file mode 100644
+index 00000000000..651625854b3
+--- /dev/null
++++ b/include/llvm/Transforms/Scalar/SummerSchoolExample.h
+@@ -0,0 +1,39 @@
++//===---------- SummerSchoolExample.h ---------------------------*- C++ -*-===//
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// An example pass...
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef LLVM_TRANSFORMS_SCALAR_SUMMERSCHOOLEXAMPLE_H
++#define LLVM_TRANSFORMS_SCALAR_SUMMERSCHOOLEXAMPLE_H
++
++#include "llvm/Analysis/ScalarEvolution.h"
++#include "llvm/IR/Function.h"
++#include "llvm/IR/IntrinsicInst.h"
++#include "llvm/IR/PassManager.h"
++
++namespace llvm {
++
++struct SummerSchoolExamplePass
++    : public PassInfoMixin<SummerSchoolExamplePass> {
++  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
++
++  // Glue for old PM.
++  bool runImpl(Function &F, AssumptionCache &AC, ScalarEvolution *SE_,
++               DominatorTree *DT_);
++
++  ScalarEvolution *SE = nullptr;
++  DominatorTree *DT = nullptr;
++
++  bool processInst(Instruction *I);
++};
++}
++
++#endif // LLVM_TRANSFORMS_SCALAR_SUMMERSCHOOLEXAMPLE_H
+diff --git a/lib/Passes/PassBuilder.cpp b/lib/Passes/PassBuilder.cpp
+index 2994a07b1cc..0a84eb3dbfb 100644
+--- a/lib/Passes/PassBuilder.cpp
++++ b/lib/Passes/PassBuilder.cpp
+@@ -85,6 +85,7 @@
+ #include "llvm/Transforms/SampleProfile.h"
+ #include "llvm/Transforms/Scalar/ADCE.h"
+ #include "llvm/Transforms/Scalar/AlignmentFromAssumptions.h"
++#include "llvm/Transforms/Scalar/SummerSchoolExample.h"
+ #include "llvm/Transforms/Scalar/BDCE.h"
+ #include "llvm/Transforms/Scalar/ConstantHoisting.h"
+ #include "llvm/Transforms/Scalar/CorrelatedValuePropagation.h"
+diff --git a/lib/Passes/PassRegistry.def b/lib/Passes/PassRegistry.def
+index a9939fddb98..e3947273f79 100644
+--- a/lib/Passes/PassRegistry.def
++++ b/lib/Passes/PassRegistry.def
+@@ -136,6 +136,7 @@ FUNCTION_PASS("aa-eval", AAEvaluator())
+ FUNCTION_PASS("adce", ADCEPass())
+ FUNCTION_PASS("add-discriminators", AddDiscriminatorsPass())
+ FUNCTION_PASS("alignment-from-assumptions", AlignmentFromAssumptionsPass())
++FUNCTION_PASS("ss-example", SummerSchoolExamplePass())
+ FUNCTION_PASS("bdce", BDCEPass())
+ FUNCTION_PASS("break-crit-edges", BreakCriticalEdgesPass())
+ FUNCTION_PASS("consthoist", ConstantHoistingPass())
+diff --git a/lib/Transforms/IPO/PassManagerBuilder.cpp b/lib/Transforms/IPO/PassManagerBuilder.cpp
+index 941efb210d1..4d574938947 100644
+--- a/lib/Transforms/IPO/PassManagerBuilder.cpp
++++ b/lib/Transforms/IPO/PassManagerBuilder.cpp
+@@ -149,6 +149,10 @@ static cl::opt<bool>
+                               cl::Hidden,
+                               cl::desc("Disable shrink-wrap library calls"));
+ 
++static cl::opt<bool>
++  RunExampleEarly("run-ss-example-early", cl::init(false), cl::Hidden,
++    cl::desc("Run the summer-school example early"));
++
+ PassManagerBuilder::PassManagerBuilder() {
+     OptLevel = 2;
+     SizeLevel = 0;
+@@ -290,6 +294,9 @@ void PassManagerBuilder::addPGOInstrPasses(legacy::PassManagerBase &MPM) {
+ }
+ void PassManagerBuilder::addFunctionSimplificationPasses(
+     legacy::PassManagerBase &MPM) {
++  if (RunExampleEarly)
++    MPM.add(createSummerSchoolExamplePass());
++
+   // Start of function pass.
+   // Break up aggregate allocas, using SSAUpdater.
+   MPM.add(createSROAPass());
+@@ -661,6 +668,10 @@ void PassManagerBuilder::populateModulePassManager(
+   // result too early.
+   MPM.add(createLoopSinkPass());
+   // Get rid of LCSSA nodes.
++
++  if (!RunExampleEarly)
++    MPM.add(createSummerSchoolExamplePass());
++
+   MPM.add(createInstructionSimplifierPass());
+   addExtensionsToPM(EP_OptimizerLast, MPM);
+ }
+diff --git a/lib/Transforms/Scalar/CMakeLists.txt b/lib/Transforms/Scalar/CMakeLists.txt
+index 06d3d6a7395..bc67e622526 100644
+--- a/lib/Transforms/Scalar/CMakeLists.txt
++++ b/lib/Transforms/Scalar/CMakeLists.txt
+@@ -1,6 +1,7 @@
+ add_llvm_library(LLVMScalarOpts
+   ADCE.cpp
+   AlignmentFromAssumptions.cpp
++  SummerSchoolExample.cpp
+   BDCE.cpp
+   ConstantHoisting.cpp
+   ConstantProp.cpp
+diff --git a/lib/Transforms/Scalar/Scalar.cpp b/lib/Transforms/Scalar/Scalar.cpp
+index afe7483006a..6a6d3b3304b 100644
+--- a/lib/Transforms/Scalar/Scalar.cpp
++++ b/lib/Transforms/Scalar/Scalar.cpp
+@@ -34,6 +34,7 @@ void llvm::initializeScalarOpts(PassRegistry &Registry) {
+   initializeADCELegacyPassPass(Registry);
+   initializeBDCELegacyPassPass(Registry);
+   initializeAlignmentFromAssumptionsPass(Registry);
++  initializeSummerSchoolExamplePass(Registry);
+   initializeConstantHoistingLegacyPassPass(Registry);
+   initializeConstantPropagationPass(Registry);
+   initializeCorrelatedValuePropagationPass(Registry);
+@@ -111,6 +112,10 @@ void LLVMAddAlignmentFromAssumptionsPass(LLVMPassManagerRef PM) {
+   unwrap(PM)->add(createAlignmentFromAssumptionsPass());
+ }
+ 
++void LLVMAddSummerSchoolExamplePass(LLVMPassManagerRef PM) {
++  unwrap(PM)->add(createSummerSchoolExamplePass());
++}
++
+ void LLVMAddCFGSimplificationPass(LLVMPassManagerRef PM) {
+   unwrap(PM)->add(createCFGSimplificationPass());
+ }
+diff --git a/lib/Transforms/Scalar/SummerSchoolExample.cpp b/lib/Transforms/Scalar/SummerSchoolExample.cpp
+new file mode 100644
+index 00000000000..602f8b1979e
+--- /dev/null
++++ b/lib/Transforms/Scalar/SummerSchoolExample.cpp
+@@ -0,0 +1,125 @@
++//===----------------------- SummerSchoolExample.cpp -----------------===//
++//                               An Example
++//
++//                     The LLVM Compiler Infrastructure
++//
++// This file is distributed under the University of Illinois Open Source
++// License. See LICENSE.TXT for details.
++//
++//===----------------------------------------------------------------------===//
++//
++// An example pass...
++//
++//===----------------------------------------------------------------------===//
++
++#define SSE_NAME "ss-example"
++#define DEBUG_TYPE SSE_NAME
++#include "llvm/Transforms/Scalar/SummerSchoolExample.h"
++#include "llvm/Transforms/Scalar.h"
++#include "llvm/ADT/SmallPtrSet.h"
++#include "llvm/ADT/Statistic.h"
++#include "llvm/Analysis/AliasAnalysis.h"
++#include "llvm/Analysis/GlobalsModRef.h"
++#include "llvm/Analysis/AssumptionCache.h"
++#include "llvm/Analysis/LoopInfo.h"
++#include "llvm/Analysis/ScalarEvolutionExpressions.h"
++#include "llvm/Analysis/ValueTracking.h"
++#include "llvm/IR/Constant.h"
++#include "llvm/IR/Dominators.h"
++#include "llvm/IR/Instruction.h"
++#include "llvm/IR/Intrinsics.h"
++#include "llvm/IR/Module.h"
++#include "llvm/Support/Debug.h"
++#include "llvm/Support/raw_ostream.h"
++using namespace llvm;
++
++STATISTIC(NumInstsSeen, "Number of instructions seen");
++
++namespace {
++struct SummerSchoolExample : public FunctionPass {
++  static char ID; // Pass identification, replacement for typeid
++  SummerSchoolExample() : FunctionPass(ID) {
++    initializeSummerSchoolExamplePass(*PassRegistry::getPassRegistry());
++  }
++
++  bool runOnFunction(Function &F) override;
++
++  void getAnalysisUsage(AnalysisUsage &AU) const override {
++    AU.addRequired<AssumptionCacheTracker>();
++    AU.addRequired<ScalarEvolutionWrapperPass>();
++    AU.addRequired<DominatorTreeWrapperPass>();
++
++    AU.setPreservesCFG();
++    AU.addPreserved<AAResultsWrapperPass>();
++    AU.addPreserved<GlobalsAAWrapperPass>();
++    AU.addPreserved<LoopInfoWrapperPass>();
++    AU.addPreserved<DominatorTreeWrapperPass>();
++    AU.addPreserved<ScalarEvolutionWrapperPass>();
++  }
++
++  SummerSchoolExamplePass Impl;
++};
++}
++
++char SummerSchoolExample::ID = 0;
++static const char aip_name[] = "Summer school example";
++INITIALIZE_PASS_BEGIN(SummerSchoolExample, SSE_NAME,
++                      aip_name, false, false)
++INITIALIZE_PASS_DEPENDENCY(AssumptionCacheTracker)
++INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
++INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
++INITIALIZE_PASS_END(SummerSchoolExample, SSE_NAME,
++                    aip_name, false, false)
++
++FunctionPass *llvm::createSummerSchoolExamplePass() {
++  return new SummerSchoolExample();
++}
++
++bool SummerSchoolExamplePass::processInst(Instruction *I) {
++  ++NumInstsSeen;
++  return false;
++}
++
++bool SummerSchoolExample::runOnFunction(Function &F) {
++  if (skipFunction(F))
++    return false;
++
++  auto &AC = getAnalysis<AssumptionCacheTracker>().getAssumptionCache(F);
++  ScalarEvolution *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
++  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
++
++  return Impl.runImpl(F, AC, SE, DT);
++}
++
++bool SummerSchoolExamplePass::runImpl(Function &F, AssumptionCache &AC,
++                                           ScalarEvolution *SE_,
++                                           DominatorTree *DT_) {
++  SE = SE_;
++  DT = DT_;
++
++  bool Changed = false;
++  for (auto &BB : F)
++    for (auto &I : BB)
++      Changed |= processInst(&I);
++
++  return Changed;
++}
++
++PreservedAnalyses
++SummerSchoolExamplePass::run(Function &F, FunctionAnalysisManager &AM) {
++
++  AssumptionCache &AC = AM.getResult<AssumptionAnalysis>(F);
++  ScalarEvolution &SE = AM.getResult<ScalarEvolutionAnalysis>(F);
++  DominatorTree &DT = AM.getResult<DominatorTreeAnalysis>(F);
++  bool Changed = runImpl(F, AC, &SE, &DT);
++
++  if (!Changed)
++    return PreservedAnalyses::all();
++  PreservedAnalyses PA;
++  PA.preserve<AAManager>();
++  PA.preserve<ScalarEvolutionAnalysis>();
++  PA.preserve<GlobalsAA>();
++  PA.preserve<LoopAnalysis>();
++  PA.preserve<DominatorTreeAnalysis>();
++  return PA;
++}
