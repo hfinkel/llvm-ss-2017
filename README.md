@@ -33,6 +33,24 @@ $ ~/install-debug/bin/clang++ -O3 -S -emit-llvm -o - /tmp/f.cpp
 
 Note that there's range metadata on the bool load, but not the enum load. You need a command line flag to enable range metadata on enums. First, figure out what it is. Look for `MD_range` in Clang's lib/CodeGen/CGExpr.cpp
 
+Next, to detech storing out-of-range values to an enum, we need to modify Clang to emit range metadata on stores in addition to loads. Can you figure out how to do it? The obvious hint is that there's a EmitStoreOfScalar which is very much like EmitLoadOfScalar.
+
+Clang does not emit range metadata on loads at -O0, but rather, only at higher optimization levels. You'll want it to emit the range metadata on stores at all optimization levels for your instrumentation pass.
+
+You can test your code by adding the following two functions to the source file above:
+
+```
+void load(foo f, int *s) {
+ *s = f;
+}
+
+void loadb(bool f, int *s) {
+ *s = f;
+}
+```
+
+To add a new pass to LLVM, you can use the patch: [sample-pass.patch](https://raw.githubusercontent.com/hfinkel/llvm-ss-2017/master/sample-pass.patch)
+
 Note that the patch adds:
 
 ```
@@ -46,4 +64,11 @@ to the lib/Transforms/IPO/PassManagerBuilder.cpp.
 By passing -mllvm -run-ss-example-early to clang, experiment with the difference between running early and late. Can you construct an example where you "miss" a faulty program when running late in the pipeline? Can you construct a benchmark which runs much faster when the instrumentation is done late?
 
 You might also find it useful to experiment with the -mllvm -print-after-all flag and -mllvm -debug (along with the DEBUG macros).
+
+What should you do when your instrumentation detects an error? One option is to trap (see BoundsChecking::getTrapBB in lib/Transforms/Instrumentation/BoundsChecking.cpp for an example of how to do this). You might also want to print an error message. To do this, you might find the emitPutS in include/llvm/Transforms/Utils/BuildLibCalls.h and CreateGlobalString from include/llvm/IR/IRBuilder.h useful. You'll also want to construct an IRBuilder object. Given some `Instruction *I`, you can use:
+
+```
+  IRBuilder<> Builder(I);
+
+```
 
