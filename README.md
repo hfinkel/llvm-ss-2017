@@ -72,6 +72,8 @@ What should you do when your instrumentation detects an error? One option is to 
 
 ```
 
+however, this will cause the builder to insert instructions before I. This is what you want in this case, because you want to instrument stores, but if you wanted to insert instructions after I, you could use `IRBuilder<> Builder(I->getNextNode())`.
+
 Also, if you're looking at lib/Transforms/Instrumentation/BoundsChecking.cpp for an example of how to split the basic block to insert the check, note that there is now a common utility to do what BoundsChecking::emitBranchToTrap does: SplitBlockAndInsertIfThen. You can use it like this (and there are many examples in lib/Transforms/Instrumentation/AddressSanitizer.cpp):
 
 ```
