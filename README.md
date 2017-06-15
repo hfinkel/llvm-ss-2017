@@ -40,12 +40,12 @@ Clang does not emit range metadata on loads at -O0, but rather, only at higher o
 You can test your code by adding the following two functions to the source file above:
 
 ```
-void load(foo f, int *s) {
- *s = f;
+void store(foo *f, int s) {
+ *f = (foo) s;
 }
 
-void loadb(bool f, int *s) {
- *s = f;
+void storeb(bool *f, int s) {
+ *f = (bool) s;
 }
 ```
 
