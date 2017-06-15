@@ -33,6 +33,8 @@ $ ~/install-debug/bin/clang++ -O3 -S -emit-llvm -o - /tmp/f.cpp
 
 Note that there's range metadata on the bool load, but not the enum load. You need a command line flag to enable range metadata on enums. First, figure out what it is. Look for `MD_range` in Clang's lib/CodeGen/CGExpr.cpp
 
+You'll also need to update the IR verifier to allow range metadata on stores. To do that, look in LLVM's lib/IR/Verifier.cpp for `MD_range`.
+
 Next, to detech storing out-of-range values to an enum, we need to modify Clang to emit range metadata on stores in addition to loads. Can you figure out how to do it? The obvious hint is that there's a EmitStoreOfScalar which is very much like EmitLoadOfScalar.
 
 Clang does not emit range metadata on loads at -O0, but rather, only at higher optimization levels. You'll want it to emit the range metadata on stores at all optimization levels for your instrumentation pass.
