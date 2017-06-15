@@ -72,3 +72,12 @@ What should you do when your instrumentation detects an error? One option is to 
 
 ```
 
+Also, if you're looking at lib/Transforms/Instrumentation/BoundsChecking.cpp for an example of how to split the basic block to insert the check, note that there is now a common utility to do what BoundsChecking::emitBranchToTrap does: SplitBlockAndInsertIfThen. You can use it like this (and there are many examples in lib/Transforms/Instrumentation/AddressSanitizer.cpp):
+
+```
+    Value *NoFakeStack =
+        IRB.CreateICmpEQ(FakeStack, Constant::getNullValue(IntptrTy));
+    Term = SplitBlockAndInsertIfThen(NoFakeStack, InsBefore, false);
+    IRBIf.SetInsertPoint(Term);
+```
+
