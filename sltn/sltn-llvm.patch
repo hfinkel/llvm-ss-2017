@@ -24,18 +24,23 @@ index 651625854b3..1f1c7cc88a8 100644
    bool processInst(Instruction *I);
  };
 diff --git a/lib/IR/Verifier.cpp b/lib/IR/Verifier.cpp
-index 5855059a189..14d213b7a68 100644
+index 5855059a189..762a989af48 100644
 --- a/lib/IR/Verifier.cpp
 +++ b/lib/IR/Verifier.cpp
-@@ -3803,7 +3803,7 @@ void Verifier::visitInstruction(Instruction &I) {
+@@ -3803,9 +3803,11 @@ void Verifier::visitInstruction(Instruction &I) {
    }
  
    if (MDNode *Range = I.getMetadata(LLVMContext::MD_range)) {
 -    Assert(isa<LoadInst>(I) || isa<CallInst>(I) || isa<InvokeInst>(I),
 +    Assert(isa<LoadInst>(I) || isa<CallInst>(I) || isa<InvokeInst>(I) || isa<StoreInst>(I),
             "Ranges are only for loads, calls and invokes!", &I);
-     visitRangeMetadata(I, Range, I.getType());
+-    visitRangeMetadata(I, Range, I.getType());
++    visitRangeMetadata(I, Range, isa<StoreInst>(I) ?
++                                   cast<StoreInst>(I).getValueOperand()->getType() :
++                                   I.getType());
    }
+ 
+   if (I.getMetadata(LLVMContext::MD_nonnull)) {
 diff --git a/lib/Transforms/Scalar/SummerSchoolExample.cpp b/lib/Transforms/Scalar/SummerSchoolExample.cpp
 index 602f8b1979e..aeceace9ea0 100644
 --- a/lib/Transforms/Scalar/SummerSchoolExample.cpp
