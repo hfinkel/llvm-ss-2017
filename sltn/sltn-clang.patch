@@ -1,0 +1,14 @@
+diff --git a/lib/CodeGen/CGExpr.cpp b/lib/CodeGen/CGExpr.cpp
+index e5e34a5f3e..cf8a77ce1e 100644
+--- a/lib/CodeGen/CGExpr.cpp
++++ b/lib/CodeGen/CGExpr.cpp
+@@ -1431,6 +1431,9 @@ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *Value, Address Addr,
+       CGM.DecorateInstructionWithTBAA(Store, TBAAPath,
+                                       false /*ConvertTypeToTag*/);
+   }
++
++  if (llvm::MDNode *RangeInfo = getRangeForLoadFromType(Ty))
++    Store->setMetadata(llvm::LLVMContext::MD_range, RangeInfo);
+ }
+ 
+ void CodeGenFunction::EmitStoreOfScalar(llvm::Value *value, LValue lvalue,
