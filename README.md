@@ -81,3 +81,5 @@ Also, if you're looking at lib/Transforms/Instrumentation/BoundsChecking.cpp for
     IRBIf.SetInsertPoint(Term);
 ```
 
+Also, you might want to look for `MD_range` in lib/Analysis/ScalarEvolution.cpp to see how to use the existing methods for reading the range metadata.
+
